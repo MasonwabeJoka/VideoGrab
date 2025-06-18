@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+// Custom SCSS styles
+.container {
+  @apply max-w-7xl;
+}
+
+// Smooth animations
+* {
+  transition: all 0.2s ease-in-out;
+}
+
+// Custom gradient text
+.gradient-text {
+  background: linear-gradient(135deg, #ef4444, #f97316);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+// Loading animation
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+// Card hover effects
+.card-hover {
+  @apply transition-all duration-300 ease-in-out;
+  
+  &:hover {
+    @apply shadow-xl transform -translate-y-1;
+  }
+}
+
+// Button styles
+.btn-primary {
+  @apply bg-red-500 hover:bg-red-600 text-white font-medium px-6 py-3 rounded-lg transition-colors;
+  
+  &:disabled {
+    @apply bg-gray-400 cursor-not-allowed;
+  }
+}
+
+// Form styles
+.form-input {
+  @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all;
+}
+
+// Responsive typography
+@media (max-width: 768px) {
+  h1 {
+    @apply text-3xl;
+  }
+  
+  .container {
+    @apply px-4;
+  }
+}
+
+// Custom scrollbar
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #ef4444;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #dc2626;
+}
