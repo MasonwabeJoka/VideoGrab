@@ -51,14 +51,8 @@ export async function POST(request: NextRequest) {
             description: snippet.description,
             thumbnail: snippet.thumbnails.maxres?.url || snippet.thumbnails.high?.url || snippet.thumbnails.medium?.url,
             duration: duration,
-            views: formatNumber(Number.parseInt(statistics.viewCount)) + " views",
-            likes: formatNumber(Number.parseInt(statistics.likeCount || "0")),
-            channel: {
-              name: snippet.channelTitle,
-              avatar: "/placeholder.svg?height=40&width=40",
-              subscribers: "N/A",
-            },
-            publishedAt: snippet.publishedAt,
+            length: duration,
+            highestQuality: "2160p",
             availableQualities: [
               { quality: "2160p", format: "mp4", size: "~500MB" },
               { quality: "1440p", format: "mp4", size: "~300MB" },
@@ -82,14 +76,8 @@ export async function POST(request: NextRequest) {
       description: "Set YOUTUBE_API_KEY environment variable to fetch full video details.",
       thumbnail: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
       duration: "N/A",
-      views: "N/A",
-      likes: "N/A",
-      channel: {
-        name: "Unknown Channel",
-        avatar: "/placeholder.svg?height=40&width=40",
-        subscribers: "N/A",
-      },
-      publishedAt: new Date().toISOString(),
+      length: "N/A",
+      highestQuality: "2160p",
       availableQualities: [
         { quality: "2160p", format: "mp4", size: "~500MB" },
         { quality: "1440p", format: "mp4", size: "~300MB" },

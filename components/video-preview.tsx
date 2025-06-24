@@ -1,69 +1,75 @@
-"use client"
+"use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { Download, Play, Clock, Eye, ThumbsUp } from "lucide-react"
-import Image from "next/image"
-import { useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Download, Play, Clock, Eye, ThumbsUp } from "lucide-react";
+import Image from "next/image";
+import { useState } from "react";
 
 interface VideoInfo {
-  id: string
-  title: string
-  thumbnail: string
-  duration: string
-  views: string
-  likes: string
-  channel: {
-    name: string
-    avatar: string
-    subscribers: string
-  }
+  id: string;
+  title: string;
+  thumbnail: string;
+  duration: string;
+  length: string;
+  highestQuality: string;
   availableQualities: Array<{
-    quality: string
-    format: string
-    size: string
-  }>
+    quality: string;
+    format: string;
+    size: string;
+  }>;
 }
 
 interface VideoPreviewProps {
-  videoInfo: VideoInfo
-  selectedQuality: string
-  onQualityChange: (quality: string) => void
-  onDownload: () => void
+  videoInfo: VideoInfo;
+  selectedQuality: string;
+  onQualityChange: (quality: string) => void;
+  onDownload: () => void;
 }
 
-export function VideoPreview({ videoInfo, selectedQuality, onQualityChange, onDownload }: VideoPreviewProps) {
-  const [downloadProgress, setDownloadProgress] = useState(0)
-  const [isDownloading, setIsDownloading] = useState(false)
+export function VideoPreview({
+  videoInfo,
+  selectedQuality,
+  onQualityChange,
+  onDownload,
+}: VideoPreviewProps) {
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownloadClick = () => {
-    setIsDownloading(true)
-    setDownloadProgress(0)
+    setIsDownloading(true);
+    setDownloadProgress(0);
 
     // Simulate download progress
     const interval = setInterval(() => {
       setDownloadProgress((prev) => {
         if (prev >= 100) {
-          clearInterval(interval)
-          setIsDownloading(false)
-          return 100
+          clearInterval(interval);
+          setIsDownloading(false);
+          return 100;
         }
-        return prev + Math.random() * 15
-      })
-    }, 200)
+        return prev + Math.random() * 15;
+      });
+    }, 200);
 
     // Call the actual download function
-    onDownload()
+    onDownload();
 
     // Reset progress after 3 seconds
     setTimeout(() => {
-      setDownloadProgress(0)
-      setIsDownloading(false)
-    }, 3000)
-  }
+      setDownloadProgress(0);
+      setIsDownloading(false);
+    }, 3000);
+  };
 
   return (
     <Card className="max-w-4xl mx-auto mb-12">
@@ -78,7 +84,9 @@ export function VideoPreview({ videoInfo, selectedQuality, onQualityChange, onDo
           {/* Video Thumbnail */}
           <div className="relative">
             <Image
-              src={videoInfo.thumbnail || "/placeholder.svg?height=180&width=320"}
+              src={
+                videoInfo.thumbnail || "/placeholder.svg?height=180&width=320"
+              }
               alt="Video thumbnail"
               width={320}
               height={180}
@@ -95,25 +103,19 @@ export function VideoPreview({ videoInfo, selectedQuality, onQualityChange, onDo
 
           {/* Video Info */}
           <div className="space-y-4">
-            <h3 className="font-semibold text-lg line-clamp-2">{videoInfo.title}</h3>
+            <h3 className="font-semibold text-lg line-clamp-2">
+              {videoInfo.title}
+            </h3>
             <div className="text-sm text-gray-600">
-              <p className="font-medium">{videoInfo.channel.name}</p>
-              {(videoInfo.views !== "N/A" || videoInfo.likes !== "N/A") && (
-                <div className="flex items-center gap-4 mt-1">
-                  {videoInfo.views !== "N/A" && (
-                    <span className="flex items-center gap-1">
-                      <Eye className="w-4 h-4" />
-                      {videoInfo.views}
-                    </span>
-                  )}
-                  {videoInfo.likes !== "N/A" && (
-                    <span className="flex items-center gap-1">
-                      <ThumbsUp className="w-4 h-4" />
-                      {videoInfo.likes}
-                    </span>
-                  )}
-                </div>
-              )}
+              <div className="flex items-center gap-4 mt-1">
+                <span className="flex items-center gap-1">
+                  <Clock className="w-4 h-4" />
+                  {videoInfo.length}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Badge variant="outline">{videoInfo.highestQuality}</Badge>
+                </span>
+              </div>
             </div>
 
             {/* Quality Selection */}
@@ -124,11 +126,24 @@ export function VideoPreview({ videoInfo, selectedQuality, onQualityChange, onDo
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {videoInfo.availableQualities.map((quality) => (
-                    <SelectItem key={quality.quality} value={quality.quality}>
-                      {quality.quality} ({quality.format.toUpperCase()}) - {quality.size}
-                    </SelectItem>
-                  ))}
+                  {videoInfo.availableQualities.map((quality) => {
+                    const qualityMap: Record<string, string> = {
+                      "1440p": "2k",
+                      "2048p": "2k",
+                      "2160p": "4k",
+                      "3840p": "4k",
+                      "4096p": "4k",
+                      "4320p": "8k",
+                      "7680p": "8k",
+                    };
+                    const label =
+                      qualityMap[quality.quality] || quality.quality;
+                    return (
+                      <SelectItem key={quality.quality} value={quality.quality}>
+                        {label} ({quality.format.toUpperCase()})
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -151,11 +166,13 @@ export function VideoPreview({ videoInfo, selectedQuality, onQualityChange, onDo
               className="w-full bg-red-500 hover:bg-red-600"
             >
               <Download className="w-4 h-4 mr-2" />
-              {isDownloading ? `Downloading ${selectedQuality}...` : `Download ${selectedQuality}`}
+              {isDownloading
+                ? `Downloading ${selectedQuality}...`
+                : `Download ${selectedQuality}`}
             </Button>
           </div>
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
