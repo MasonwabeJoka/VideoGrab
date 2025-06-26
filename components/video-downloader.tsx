@@ -1,142 +1,81 @@
-"use client"
+"use client";
 
-import type React from "react"
-
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { VideoPreview } from "./video-preview"
-import { FeatureSection } from "./feature-section"
-import { useToast } from "@/hooks/use-toast"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { VideoPreview } from "./video-preview";
+import { FeatureSection } from "./feature-section";
+import { useToast } from "@/hooks/use-toast";
 
 interface VideoInfo {
-  id: string
-  title: string
-  thumbnail: string
-  duration: string
-  views: string
-  likes: string
+  id: string;
+  title: string;
+  thumbnail: string;
+  duration: string;
+  views: string;
+  likes: string;
   channel: {
-    name: string
-    avatar: string
-    subscribers: string
-  }
+    name: string;
+    avatar: string;
+    subscribers: string;
+  };
   availableQualities: Array<{
-    quality: string
-    format: string
-    size: string
-  }>
+    quality: string;
+    format: string;
+    size: string;
+  }>;
 }
 
 export function VideoDownloader() {
-  const [url, setUrl] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null)
-  const [selectedQuality, setSelectedQuality] = useState("")
-  const { toast } = useToast()
+  const [url, setUrl] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
+  const [selectedQuality, setSelectedQuality] = useState("");
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!url.trim()) return
+    e.preventDefault();
+    if (!url.trim()) return;
 
-    setIsLoading(true)
-    setVideoInfo(null)
+    setIsLoading(true);
+    setVideoInfo(null);
 
     try {
       const response = await fetch("/api/video-info", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
         toast({
           title: "Error",
           description: data.error || "Failed to fetch video info",
           variant: "destructive",
-        })
-        return
+        });
+        return;
       }
 
-      setVideoInfo(data)
-      // Set highest quality as default
+      setVideoInfo(data);
       if (data.availableQualities && data.availableQualities.length > 0) {
-        setSelectedQuality(data.availableQualities[0].quality)
+        setSelectedQuality(data.availableQualities[0].quality);
       }
 
-      toast({
-        title: "Success",
-        description: "Video information loaded successfully!",
-      })
+      toast({ title: "Success", description: "Video information loaded successfully!" });
     } catch (error) {
-      console.error("Error:", error)
+      console.error("Error:", error);
       toast({
         title: "Error",
         description: "Failed to fetch video info. Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
-
-  const handleDownload = async () => {
-    if (!videoInfo) return
-
-    try {
-      toast({
-        title: "Download Started",
-        description: `Starting download in ${selectedQuality} quality...`,
-      })
-
-      const response = await fetch("/api/download", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          url,
-          quality: selectedQuality,
-          format: "mp4",
-        }),
-      })
-
-      const data = await response.json()
-
-      if (data.success && data.downloadUrl) {
-        // Create a temporary link to trigger download
-        const link = document.createElement("a")
-        link.href = data.downloadUrl
-        link.download = `${videoInfo.title}_${selectedQuality}.mp4`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-
-        toast({
-          title: "Download Complete",
-          description: "Video downloaded successfully!",
-        })
-      } else {
-        toast({
-          title: "Download Info",
-          description: data.message || data.error || "Download functionality requires backend implementation",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("Download error:", error)
-      toast({
-        title: "Download Failed",
-        description: "Download failed. Please try again.",
-        variant: "destructive",
-      })
-    }
-  }
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -181,12 +120,12 @@ export function VideoDownloader() {
           videoInfo={videoInfo}
           selectedQuality={selectedQuality}
           onQualityChange={setSelectedQuality}
-          onDownload={handleDownload}
+          onDownload={() => {}} // Empty, as download is handled internally in VideoPreview
         />
       )}
 
       {/* Features Section */}
       <FeatureSection />
     </div>
-  )
+  );
 }

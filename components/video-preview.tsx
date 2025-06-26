@@ -11,9 +11,11 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Download, Play, Clock, Eye, ThumbsUp } from "lucide-react";
+import { Download, Play, Clock } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Pusher from "pusher-js";
+import { useToast } from "@/hooks/use-toast";
 
 interface VideoInfo {
   id: string;
@@ -40,36 +42,84 @@ export function VideoPreview({
   videoInfo,
   selectedQuality,
   onQualityChange,
-  onDownload,
 }: VideoPreviewProps) {
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadId, setDownloadId] = useState<string | null>(null);
+  const [status, setStatus] = useState<"idle" | "starting" | "downloading" | "completed" | "failed">("idle");
+  const { toast } = useToast();
 
-  const handleDownloadClick = () => {
+  const handleDownloadClick = async () => {
     setIsDownloading(true);
     setDownloadProgress(0);
+    setStatus("starting");
 
-    // Simulate download progress
-    const interval = setInterval(() => {
-      setDownloadProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsDownloading(false);
-          return 100;
-        }
-        return prev + Math.random() * 15;
+    try {
+      const response = await fetch("/api/download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: `https://www.youtube.com/watch?v=${videoInfo.id}`,
+          quality: selectedQuality,
+          format: "mp4",
+        }),
       });
-    }, 200);
 
-    // Call the actual download function
-    onDownload();
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.error || "Failed to start download");
+      }
 
-    // Reset progress after 3 seconds
-    setTimeout(() => {
-      setDownloadProgress(0);
+      setDownloadId(data.downloadId);
+      toast({ title: "Download Started", description: `Downloading in ${selectedQuality}...` });
+    } catch (error) {
       setIsDownloading(false);
-    }, 3000);
+      setStatus("failed");
+      toast({
+        title: "Download Failed",
+        description: error.message || "Failed to start download",
+        variant: "destructive",
+      });
+    }
   };
+
+  useEffect(() => {
+    if (!downloadId) return;
+  
+    const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
+      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
+    });
+    const channel = pusher.subscribe(`download-${downloadId}`);
+  
+    channel.bind("progress-update", (data: { progress: number; status: string; fileName?: string; fileSize?: number; downloadUrl?: string; error?: string }) => {
+      // Ensure state updates are safe
+      setDownloadProgress((prev) => Math.min(data.progress, 100));
+      setStatus(data.status);
+      setIsDownloading(data.status === "starting" || data.status === "downloading");
+  
+      if (data.status === "completed" && data.downloadUrl) {
+        const link = document.createElement("a");
+        link.href = data.downloadUrl;
+        link.download = data.fileName || `${videoInfo.title}_${selectedQuality}.mp4`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast({ title: "Download Complete", description: "Video downloaded successfully!" });
+      } else if (data.status === "failed") {
+        toast({
+          title: "Download Failed",
+          description: data.error || "Download failed. Please try again.",
+          variant: "destructive",
+        });
+      }
+    });
+  
+    return () => {
+      channel.unbind_all();
+      channel.unsubscribe();
+      pusher.disconnect();
+    };
+  }, [downloadId, videoInfo.title, selectedQuality, toast]);
 
   return (
     <Card className="max-w-4xl mx-auto mb-12">
@@ -84,9 +134,7 @@ export function VideoPreview({
           {/* Video Thumbnail */}
           <div className="relative">
             <Image
-              src={
-                videoInfo.thumbnail || "/placeholder.svg?height=180&width=320"
-              }
+              src={videoInfo.thumbnail || "/placeholder.svg?height=180&width=320"}
               alt="Video thumbnail"
               width={320}
               height={180}
@@ -103,9 +151,7 @@ export function VideoPreview({
 
           {/* Video Info */}
           <div className="space-y-4">
-            <h3 className="font-semibold text-lg line-clamp-2">
-              {videoInfo.title}
-            </h3>
+            <h3 className="font-semibold text-lg line-clamp-2">{videoInfo.title}</h3>
             <div className="text-sm text-gray-600">
               <div className="flex items-center gap-4 mt-1">
                 <span className="flex items-center gap-1">
@@ -136,8 +182,7 @@ export function VideoPreview({
                       "4320p": "8k",
                       "7680p": "8k",
                     };
-                    const label =
-                      qualityMap[quality.quality] || quality.quality;
+                    const label = qualityMap[quality.quality] || quality.quality;
                     return (
                       <SelectItem key={quality.quality} value={quality.quality}>
                         {label} ({quality.format.toUpperCase()})
@@ -152,7 +197,7 @@ export function VideoPreview({
             {isDownloading && (
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span>Downloading...</span>
+                  <span>{status === "starting" ? "Starting..." : "Downloading..."}</span>
                   <span>{Math.round(downloadProgress)}%</span>
                 </div>
                 <Progress value={downloadProgress} className="w-full" />

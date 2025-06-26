@@ -1,61 +1,57 @@
-import { spawn } from "child_process"
-import { promises as fs } from "fs"
-import path from "path"
-import { randomUUID } from "crypto"
+import { spawn } from "child_process";
+import { promises as fs } from "fs";
+import path from "path";
+import { randomUUID } from "crypto";
 
 export interface DownloadOptions {
-  url: string
-  quality: string
-  format: string
-  onProgress?: (progress: number) => void
+  url: string;
+  quality: string;
+  format: string;
+  onProgress?: (progress: number) => void;
 }
 
 export interface DownloadResult {
-  success: boolean
-  filePath?: string
-  fileName?: string
-  error?: string
-  fileSize?: number
+  success: boolean;
+  filePath?: string;
+  fileName?: string;
+  error?: string;
+  fileSize?: number;
 }
 
 export class YtDlpDownloader {
-  private downloadsDir: string
+  private downloadsDir: string;
 
   constructor() {
-    // Create downloads directory in the project root
-    this.downloadsDir = path.join(process.cwd(), "downloads")
-    this.ensureDownloadsDir()
+    this.downloadsDir = path.join(process.cwd(), "downloads");
+    this.ensureDownloadsDir();
   }
 
   private async ensureDownloadsDir() {
     try {
-      await fs.access(this.downloadsDir)
+      await fs.access(this.downloadsDir);
     } catch {
-      await fs.mkdir(this.downloadsDir, { recursive: true })
+      await fs.mkdir(this.downloadsDir, { recursive: true });
     }
   }
 
   async downloadVideo(options: DownloadOptions): Promise<DownloadResult> {
-    const { url, quality, format, onProgress } = options
-    const downloadId = randomUUID()
+    const { url, quality, format, onProgress } = options;
+    const downloadId = randomUUID();
 
-    console.log("=== DOWNLOAD ATTEMPT ===")
-    console.log("URL:", url)
-    console.log("Quality:", quality)
-    console.log("Platform:", process.platform)
-    console.log("Environment:", process.env.VERCEL ? "Vercel" : process.env.RAILWAY_ENVIRONMENT ? "Railway" : "Local")
-    console.log("========================")
+    console.log("=== DOWNLOAD ATTEMPT ===");
+    console.log("URL:", url);
+    console.log("Quality:", quality);
+    console.log("Platform:", process.platform);
+    console.log("Environment:", process.env.VERCEL ? "Vercel" : process.env.RAILWAY_ENVIRONMENT ? "Railway" : "Local");
+    console.log("========================");
 
-    // Check if we're on Railway and YouTube is blocking
     if (process.env.RAILWAY_ENVIRONMENT) {
       return {
         success: false,
-        error:
-          "YouTube blocks Railway's IP addresses. Please try a different hosting platform like DigitalOcean, Linode, or AWS EC2 for YouTube downloads.",
-      }
+        error: "YouTube blocks Railway's IP addresses. Please try a different hosting platform like DigitalOcean, Linode, or AWS EC2 for YouTube downloads.",
+      };
     }
 
-    // Try multiple download strategies
     const strategies = [
       {
         name: "android_client",
@@ -73,30 +69,29 @@ export class YtDlpDownloader {
         name: "basic_fallback",
         args: this.buildBasicArgs(url, downloadId, quality, format),
       },
-    ]
+    ];
 
     for (const strategy of strategies) {
-      console.log(`Trying strategy: ${strategy.name}`)
-      const result = await this.attemptDownload(strategy.args, downloadId, onProgress)
+      console.log(`Trying strategy: ${strategy.name}`);
+      const result = await this.attemptDownload(strategy.args, downloadId, onProgress);
 
       if (result.success) {
-        console.log(`✅ Success with strategy: ${strategy.name}`)
-        return result
+        console.log(`✅ Success with strategy: ${strategy.name}`);
+        return result;
       }
 
-      console.log(`❌ Strategy ${strategy.name} failed: ${result.error}`)
+      console.log(`❌ Strategy ${strategy.name} failed: ${result.error}`);
     }
 
     return {
       success: false,
       error: "All download strategies failed. YouTube may be blocking downloads from this server.",
-    }
+    };
   }
 
   private buildAndroidArgs(url: string, downloadId: string, quality: string, format: string): string[] {
-    const outputTemplate = path.join(this.downloadsDir, `${downloadId}.%(ext)s`)
-
-    return [
+    const outputTemplate = path.join(this.downloadsDir, `${downloadId}.%(ext)s`);
+    const args = [
       url,
       "--output",
       outputTemplate,
@@ -117,11 +112,22 @@ export class YtDlpDownloader {
       "--fragment-retries",
       "3",
       "--no-check-certificates",
-    ]
+    ];
+
+    // Add PO Token provider URL or manual token, else fallback
+    if (process.env.YOUTUBE_POT_PROVIDER_URL) {
+      args.push("--extractor-args", `youtube:pot_provider_url=${process.env.YOUTUBE_POT_PROVIDER_URL}`);
+    } else if (process.env.YOUTUBE_PO_TOKEN) {
+      args.push("--extractor-args", `youtube:po_token=android.gvs+${process.env.YOUTUBE_PO_TOKEN}`);
+    } else {
+      args.push("--extractor-args", "youtube:formats=missing_pot");
+    }
+
+    return args;
   }
 
   private buildIosArgs(url: string, downloadId: string, quality: string, format: string): string[] {
-    const outputTemplate = path.join(this.downloadsDir, `${downloadId}.%(ext)s`)
+    const outputTemplate = path.join(this.downloadsDir, `${downloadId}.%(ext)s`);
 
     return [
       url,
@@ -144,11 +150,11 @@ export class YtDlpDownloader {
       "--fragment-retries",
       "3",
       "--no-check-certificates",
-    ]
+    ];
   }
 
   private buildWebArgs(url: string, downloadId: string, quality: string, format: string): string[] {
-    const outputTemplate = path.join(this.downloadsDir, `${downloadId}.%(ext)s`)
+    const outputTemplate = path.join(this.downloadsDir, `${downloadId}.%(ext)s`);
 
     return [
       url,
@@ -169,13 +175,13 @@ export class YtDlpDownloader {
       "--fragment-retries",
       "3",
       "--no-check-certificates",
-    ]
+    ];
   }
 
   private buildBasicArgs(url: string, downloadId: string, quality: string, format: string): string[] {
-    const outputTemplate = path.join(this.downloadsDir, `${downloadId}.%(ext)s`)
+    const outputTemplate = path.join(this.downloadsDir, `${downloadId}.%(ext)s`);
 
-    return [url, "--output", outputTemplate, "--format", "best[height<=720]/best", "--no-playlist", "--ignore-errors"]
+    return [url, "--output", outputTemplate, "--format", "best[height<=720]/best", "--no-playlist", "--ignore-errors"];
   }
 
   private async attemptDownload(
@@ -184,119 +190,134 @@ export class YtDlpDownloader {
     onProgress?: (progress: number) => void,
   ): Promise<DownloadResult> {
     return new Promise((resolve) => {
-      console.log("yt-dlp command:", ["python", "-m", "yt_dlp", ...args].join(" "))
+      console.log(`yt-dlp command: ${["python", "-m", "yt_dlp", ...args].join(" ")}`);
 
       const ytDlp = spawn("python", ["-m", "yt_dlp", ...args], {
         stdio: ["pipe", "pipe", "pipe"],
-      })
+      });
 
-      let outputFilePath = ""
-      let fileName = ""
-      let errorOutput = ""
+      let outputFilePath = "";
+      let fileName = "";
+      let errorOutput = "";
+      let lastProgress = -1;
 
       ytDlp.stdout.on("data", (data) => {
-        const output = data.toString()
-        console.log("yt-dlp:", output.trim())
+        const output = data.toString();
+        console.log(`yt-dlp: ${output.trim()}`);
 
         // Parse progress
-        const progressMatch = output.match(/download:(\d+(?:\.\d+)?)%/)
+        const progressMatch = output.match(/download:(\d+(?:\.\d+)?)%/);
         if (progressMatch && onProgress) {
-          const progress = Number.parseFloat(progressMatch[1])
-          onProgress(progress)
+          const progress = Number.parseFloat(progressMatch[1]);
+          const roundedProgress = Math.round(progress);
+          // Throttle to every 5% progress
+          if (roundedProgress !== lastProgress && roundedProgress % 5 === 0) {
+            lastProgress = roundedProgress;
+            console.log(`Throttled progress update: ${progress}%`);
+            onProgress(progress);
+          }
         }
 
         // Extract output file path
         const fileMatch =
           output.match(/\[download\] Destination: (.+)/) ||
-          output.match(/\[download\] (.+) has already been downloaded/)
+          output.match(/\[download\] (.+) has already been downloaded/);
         if (fileMatch) {
-          outputFilePath = fileMatch[1]
-          fileName = path.basename(outputFilePath)
+          outputFilePath = fileMatch[1];
+          fileName = path.basename(outputFilePath);
         }
 
-        const mergeMatch = output.match(/\[Merger\] Merging formats into "(.+)"/)
+        const mergeMatch = output.match(/\[Merger\] Merging formats into "(.+)"/);
         if (mergeMatch) {
-          outputFilePath = mergeMatch[1]
-          fileName = path.basename(outputFilePath)
+          outputFilePath = mergeMatch[1];
+          fileName = path.basename(outputFilePath);
         }
-      })
+      });
 
       ytDlp.stderr.on("data", (data) => {
-        const error = data.toString()
-        errorOutput += error
-        console.error("yt-dlp error:", error.trim())
-      })
+        const error = data.toString();
+        errorOutput += error;
+        console.error(`yt-dlp error: ${error.trim()}`);
+      });
 
       ytDlp.on("close", async (code) => {
-        console.log(`yt-dlp exited with code: ${code}`)
+        console.log(`yt-dlp exited with code: ${code}`);
 
         if (code === 0) {
           if (outputFilePath) {
             try {
-              const stats = await fs.stat(outputFilePath)
+              const stats = await fs.stat(outputFilePath);
+              // Ensure final progress update
+              if (onProgress && lastProgress !== 100) {
+                onProgress(100);
+              }
               resolve({
                 success: true,
                 filePath: outputFilePath,
                 fileName: fileName,
                 fileSize: stats.size,
-              })
-              return
+              });
+              return;
             } catch (error) {
-              console.error(`File not found: ${outputFilePath}`)
+              console.error(`File not found: ${outputFilePath}`);
             }
           }
 
           try {
-            const files = await fs.readdir(this.downloadsDir)
-            const downloadedFile = files.find((file) => file.startsWith(downloadId) && !file.endsWith(".info.json"))
+            const files = await fs.readdir(this.downloadsDir);
+            const downloadedFile = files.find((file) => file.startsWith(downloadId) && !file.endsWith(".info.json"));
 
             if (downloadedFile) {
-              const filePath = path.join(this.downloadsDir, downloadedFile)
-              const stats = await fs.stat(filePath)
+              const filePath = path.join(this.downloadsDir, downloadedFile);
+              const stats = await fs.stat(filePath);
+              // Ensure final progress update
+              if (onProgress && lastProgress !== 100) {
+                onProgress(100);
+              }
               resolve({
                 success: true,
                 filePath: filePath,
                 fileName: downloadedFile,
                 fileSize: stats.size,
-              })
-              return
+              });
+              return;
             }
           } catch (error) {
-            console.error("Error searching files:", error)
+            console.error(`Error searching files: ${error}`);
           }
 
           resolve({
             success: false,
             error: "Download completed but file not found",
-          })
+          });
         } else {
-          let errorMessage = `Download failed (code ${code})`
+          let errorMessage = `Download failed (code ${code})`;
 
           if (errorOutput.includes("Sign in to confirm")) {
-            errorMessage = "YouTube blocked request - server IP is blocked"
+            errorMessage = "YouTube blocked request - server IP is blocked";
           } else if (errorOutput.includes("Video unavailable")) {
-            errorMessage = "Video is unavailable"
+            errorMessage = "Video is unavailable";
           }
 
           resolve({
             success: false,
             error: errorMessage,
-          })
+          });
         }
-      })
+      });
 
       ytDlp.on("error", (error) => {
         resolve({
           success: false,
           error: `Failed to start yt-dlp: ${error.message}`,
-        })
-      })
-    })
+        });
+      });
+    });
   }
 
   private getFormatSelector(quality: string, format: string): string {
     if (format === "mp3") {
-      return "bestaudio[ext=m4a]/bestaudio/best"
+      return "bestaudio[ext=m4a]/bestaudio/best";
     }
 
     const heightMap: Record<string, string> = {
@@ -306,31 +327,31 @@ export class YtDlpDownloader {
       "720p": "720",
       "480p": "480",
       "360p": "360",
-    }
+    };
 
-    const maxHeight = heightMap[quality] || "720"
-    return `best[height<=${maxHeight}]/best[height<=${maxHeight}][ext=mp4]/best[ext=mp4]/best`
+    const maxHeight = heightMap[quality] || "720";
+    return `best[height<=${maxHeight}]/best[height<=${maxHeight}][ext=mp4]/best[ext=mp4]/best`;
   }
 
   async cleanupOldFiles(maxAgeHours = 24) {
     try {
-      const files = await fs.readdir(this.downloadsDir)
-      const now = Date.now()
-      const maxAge = maxAgeHours * 60 * 60 * 1000
+      const files = await fs.readdir(this.downloadsDir);
+      const now = Date.now();
+      const maxAge = maxAgeHours * 60 * 60 * 1000;
 
       for (const file of files) {
-        const filePath = path.join(this.downloadsDir, file)
-        const stats = await fs.stat(filePath)
+        const filePath = path.join(this.downloadsDir, file);
+        const stats = await fs.stat(filePath);
 
         if (now - stats.mtime.getTime() > maxAge) {
-          await fs.unlink(filePath)
-          console.log(`Cleaned up old file: ${file}`)
+          await fs.unlink(filePath);
+          console.log(`Cleaned up old file: ${file}`);
         }
       }
     } catch (error) {
-      console.error("Error cleaning up files:", error)
+      console.error("Error cleaning up files:", error);
     }
   }
 }
 
-export const ytDlpDownloader = new YtDlpDownloader()
+export const ytDlpDownloader = new YtDlpDownloader();
