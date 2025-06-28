@@ -102,7 +102,7 @@ export class YtDlpDownloader {
       "--progress-template",
       "download:%(progress._percent_str)s",
       "--extractor-args",
-      "youtube:player_client=android",
+      "youtube:player_client=android, use_getpot_bgutil", // Use bgutil plugin with Android client
       "--user-agent",
       "com.google.android.youtube/17.36.4 (Linux; U; Android 12; GB) gzip",
       "--socket-timeout",
@@ -112,16 +112,9 @@ export class YtDlpDownloader {
       "--fragment-retries",
       "3",
       "--no-check-certificates",
+      "--cookies",
+      path.join(process.cwd(), "cookies.txt"), // Use cookies.txt for authentication
     ];
-
-    // Add PO Token provider URL or manual token, else fallback
-    if (process.env.YOUTUBE_POT_PROVIDER_URL) {
-      args.push("--extractor-args", `youtube:pot_provider_url=${process.env.YOUTUBE_POT_PROVIDER_URL}`);
-    } else if (process.env.YOUTUBE_PO_TOKEN) {
-      args.push("--extractor-args", `youtube:po_token=android.gvs+${process.env.YOUTUBE_PO_TOKEN}`);
-    } else {
-      args.push("--extractor-args", "youtube:formats=missing_pot");
-    }
 
     return args;
   }
@@ -140,7 +133,7 @@ export class YtDlpDownloader {
       "--progress-template",
       "download:%(progress._percent_str)s",
       "--extractor-args",
-      "youtube:player_client=ios",
+      "youtube:player_client=ios, use_getpot_bgutil", // Use bgutil plugin with iOS client
       "--user-agent",
       "com.google.ios.youtube/17.36.4 (iPhone14,3; U; CPU iOS 15_6 like Mac OS X)",
       "--socket-timeout",
@@ -150,6 +143,8 @@ export class YtDlpDownloader {
       "--fragment-retries",
       "3",
       "--no-check-certificates",
+      "--cookies",
+      path.join(process.cwd(), "cookies.txt"), // Use cookies.txt for authentication
     ];
   }
 
@@ -175,13 +170,29 @@ export class YtDlpDownloader {
       "--fragment-retries",
       "3",
       "--no-check-certificates",
+      "--cookies",
+      path.join(process.cwd(), "cookies.txt"), // Use cookies.txt for authentication
     ];
   }
 
   private buildBasicArgs(url: string, downloadId: string, quality: string, format: string): string[] {
     const outputTemplate = path.join(this.downloadsDir, `${downloadId}.%(ext)s`);
 
-    return [url, "--output", outputTemplate, "--format", "best[height<=720]/best", "--no-playlist", "--ignore-errors"];
+    return [
+      url,
+      "--output",
+      outputTemplate,
+      "--format",
+      "best[height<=720]/best[height<=720][ext=mp4]/best[ext=mp4]/best",
+      "--no-playlist",
+      "--write-info-json",
+      "--progress-template",
+      "download:%(progress._percent_str)s",
+      "--extractor-args",
+      "youtube:use_getpot_bgutil", // Use bgutil plugin as fallback
+      "--cookies",
+      path.join(process.cwd(), "cookies.txt"), // Use cookies.txt for authentication
+    ];
   }
 
   private async attemptDownload(
