@@ -4,9 +4,26 @@ import { Footer } from "@/components/footer";
 // import { DonationWidget } from "@/components/monetization/donation-widget";
 
 export const metadata = {
-  title: "Premium Features - VideoBoom",
+  title: "Premium Features - VideoBoom YouTube Downloader",
   description:
-    "Premium features are currently disabled. Only Google AdSense monetization is active.",
+    "Discover upcoming premium features for VideoBoom YouTube downloader. Enhanced video quality, unlimited downloads, and ad-free experience coming soon.",
+  keywords: [
+    "premium youtube downloader",
+    "unlimited video downloads",
+    "ad-free youtube downloader",
+    "4K video downloader",
+    "premium video converter",
+  ],
+  alternates: {
+    canonical: "https://videoboom.com/premium",
+  },
+  openGraph: {
+    title: "Premium Features - VideoBoom YouTube Downloader",
+    description:
+      "Discover upcoming premium features for VideoBoom YouTube downloader. Enhanced video quality, unlimited downloads, and ad-free experience coming soon.",
+    url: "https://videoboom.com/premium",
+    type: "website",
+  },
 };
 
 export default function PremiumPage() {

@@ -3,6 +3,26 @@ import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 // import { MonetizedLayout } from "@/components/monetization/monetized-layout";
 import { HeaderAd, FooterAd } from "@/components/ads/google-adsense";
+import { HiddenSEOContent } from "@/components/seo/hidden-seo-content";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title:
+    "Free YouTube Video Downloader | Download HD Videos Online - VideoBoom",
+  description:
+    "Download YouTube videos in HD quality for free. Fast, secure, and easy-to-use online YouTube downloader. Supports MP4, MP3, 1080p, 4K downloads. No registration required.",
+  alternates: {
+    canonical: "https://videoboom.online",
+  },
+  openGraph: {
+    title:
+      "Free YouTube Video Downloader | Download HD Videos Online - VideoBoom",
+    description:
+      "Download YouTube videos in HD quality for free. Fast, secure, and easy-to-use online YouTube downloader. Supports MP4, MP3, 1080p, 4K downloads.",
+    url: "https://videoboom.online",
+    type: "website",
+  },
+};
 
 export default function Home() {
   return (
@@ -27,7 +47,12 @@ export default function Home() {
         >
           <VideoDownloader />
         </MonetizedLayout> */}
-        <VideoDownloader />
+        <div className="container mx-auto px-4 py-8">
+          <VideoDownloader />
+
+          {/* Hidden SEO Content - Not visible to users but crawled by search engines */}
+          <HiddenSEOContent />
+        </div>
       </main>
 
       {/* Footer Ad - Google AdSense Only */}
