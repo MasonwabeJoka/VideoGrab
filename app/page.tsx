@@ -1,15 +1,20 @@
-import { VideoDownloader } from "@/components/video-downloader"
-import { Header } from "@/components/header"
-import { Footer } from "@/components/footer"
+import { VideoDownloader } from "@/components/video-downloader";
+import { Header } from "@/components/header";
+import { Footer } from "@/components/footer";
+import { MonetizedLayout } from "@/components/monetization/monetized-layout";
 
 export default function Home() {
   return (
-    <div className="min-h-screen flex flex-col">
+    <>
       <Header />
-      <main className="flex-1">
+      <MonetizedLayout
+        showHeaderAd={true}
+        showSidebar={true}
+        showFooterAd={true}
+      >
         <VideoDownloader />
-      </main>
+      </MonetizedLayout>
       <Footer />
-    </div>
-  )
+    </>
+  );
 }
