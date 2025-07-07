@@ -3,7 +3,13 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { VideoPreview } from "./video-preview";
 import { FeatureSection } from "./feature-section";
 import { useToast } from "@/hooks/use-toast";
@@ -13,9 +19,11 @@ interface VideoInfo {
   title: string;
   thumbnail: string;
   duration: string;
-  views: string;
-  likes: string;
-  channel: {
+  length: string;
+  highestQuality: string;
+  views?: string;
+  likes?: string;
+  channel?: {
     name: string;
     avatar: string;
     subscribers: string;
@@ -61,10 +69,14 @@ export function VideoDownloader() {
 
       setVideoInfo(data);
       if (data.availableQualities && data.availableQualities.length > 0) {
+        // Default to the highest quality (first in the list)
         setSelectedQuality(data.availableQualities[0].quality);
       }
 
-      toast({ title: "Success", description: "Video information loaded successfully!" });
+      toast({
+        title: "Success",
+        description: "Video information loaded successfully!",
+      });
     } catch (error) {
       console.error("Error:", error);
       toast({
@@ -85,7 +97,8 @@ export function VideoDownloader() {
           Download YouTube Videos
         </h1>
         <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-          Fast, free, and easy way to download your favorite YouTube videos in high quality. No registration required.
+          Fast, free, and easy way to download your favorite YouTube videos in
+          high quality. No registration required.
         </p>
       </div>
 
@@ -93,7 +106,9 @@ export function VideoDownloader() {
       <Card className="max-w-2xl mx-auto mb-12">
         <CardHeader>
           <CardTitle>Enter YouTube URL</CardTitle>
-          <CardDescription>Paste the YouTube video URL below to get started</CardDescription>
+          <CardDescription>
+            Paste the YouTube video URL below to get started
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -106,7 +121,11 @@ export function VideoDownloader() {
                 className="flex-1"
                 required
               />
-              <Button type="submit" disabled={isLoading} className="bg-red-500 hover:bg-red-600">
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="bg-red-500 hover:bg-red-600"
+              >
                 {isLoading ? "Processing..." : "Get Video"}
               </Button>
             </div>
@@ -123,9 +142,6 @@ export function VideoDownloader() {
           onDownload={() => {}} // Empty, as download is handled internally in VideoPreview
         />
       )}
-
-      {/* Features Section */}
-      <FeatureSection />
     </div>
   );
 }

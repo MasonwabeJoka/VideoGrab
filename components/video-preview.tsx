@@ -13,8 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Download, Play, Clock } from "lucide-react";
 import Image from "next/image";
-import { useState, useEffect } from "react";
-import Pusher from "pusher-js";
+import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 interface VideoInfo {
@@ -46,14 +45,91 @@ export function VideoPreview({
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadId, setDownloadId] = useState<string | null>(null);
-  const [status, setStatus] = useState<"idle" | "starting" | "downloading" | "completed" | "failed">("idle");
+  const [status, setStatus] = useState<
+    "idle" | "processing" | "completed" | "failed"
+  >("idle");
+  const [fallbackError, setFallbackError] = useState<string | null>(null);
   const { toast } = useToast();
+  const pollTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (!downloadId || !isDownloading) return;
+    let cancelled = false;
+    const poll = async () => {
+      const res = await fetch(`/api/download?id=${downloadId}`);
+      const statusData = await res.json();
+      if (
+        statusData.error &&
+        statusData.error.includes("Trying the next lower quality")
+      ) {
+        setFallbackError(statusData.error);
+      }
+      if (statusData.status === "completed") {
+        setStatus("completed");
+        setIsDownloading(false);
+        setFallbackError(null);
+        if (
+          statusData.actualQuality &&
+          statusData.actualQuality !== selectedQuality
+        ) {
+          toast({
+            title: "Downloaded at lower quality",
+            description: `The video was downloaded at ${statusData.actualQuality} because the selected quality was not available.`,
+          });
+        }
+        if (statusData.videoOnly) {
+          toast({
+            title: "Video-Only Download",
+            description:
+              "The highest quality available is video-only (no audio).",
+            variant: "destructive",
+          });
+        }
+        // Trigger download
+        const link = document.createElement("a");
+        link.href = `/api/download/file?id=${downloadId}&file=${encodeURIComponent(
+          statusData.fileName ||
+            videoInfo.title + "_" + selectedQuality + ".mp4"
+        )}`;
+        link.download =
+          statusData.fileName || `${videoInfo.title}_${selectedQuality}.mp4`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast({
+          title: "Download Complete",
+          description: "Video downloaded successfully!",
+        });
+      } else if (statusData.status === "failed") {
+        if (
+          !statusData.error ||
+          !statusData.error.includes("Trying the next lower quality")
+        ) {
+          setFallbackError(null);
+          setStatus("failed");
+          setIsDownloading(false);
+          toast({
+            title: "Download Failed",
+            description:
+              statusData.error || "Download failed. Please try again.",
+            variant: "destructive",
+          });
+        }
+      } else if (!cancelled) {
+        pollTimeout.current = setTimeout(poll, 2000);
+      }
+    };
+    poll();
+    return () => {
+      cancelled = true;
+      if (pollTimeout.current) clearTimeout(pollTimeout.current);
+    };
+  }, [downloadId, isDownloading, selectedQuality, toast, videoInfo.title]);
 
   const handleDownloadClick = async () => {
     setIsDownloading(true);
-    setDownloadProgress(0);
-    setStatus("starting");
-
+    setStatus("processing");
+    setFallbackError(null);
     try {
       const response = await fetch("/api/download", {
         method: "POST",
@@ -62,16 +138,18 @@ export function VideoPreview({
           url: `https://www.youtube.com/watch?v=${videoInfo.id}`,
           quality: selectedQuality,
           format: "mp4",
+          title: videoInfo.title,
         }),
       });
-
       const data = await response.json();
       if (!data.success) {
         throw new Error(data.error || "Failed to start download");
       }
-
       setDownloadId(data.downloadId);
-      toast({ title: "Download Started", description: `Downloading in ${selectedQuality}...` });
+      toast({
+        title: "Video Processing",
+        description: `Processing in ${selectedQuality}...`,
+      });
     } catch (error) {
       setIsDownloading(false);
       setStatus("failed");
@@ -82,44 +160,6 @@ export function VideoPreview({
       });
     }
   };
-
-  useEffect(() => {
-    if (!downloadId) return;
-  
-    const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
-      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
-    });
-    const channel = pusher.subscribe(`download-${downloadId}`);
-  
-    channel.bind("progress-update", (data: { progress: number; status: string; fileName?: string; fileSize?: number; downloadUrl?: string; error?: string }) => {
-      // Ensure state updates are safe
-      setDownloadProgress((prev) => Math.min(data.progress, 100));
-      setStatus(data.status);
-      setIsDownloading(data.status === "starting" || data.status === "downloading");
-  
-      if (data.status === "completed" && data.downloadUrl) {
-        const link = document.createElement("a");
-        link.href = data.downloadUrl;
-        link.download = data.fileName || `${videoInfo.title}_${selectedQuality}.mp4`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        toast({ title: "Download Complete", description: "Video downloaded successfully!" });
-      } else if (data.status === "failed") {
-        toast({
-          title: "Download Failed",
-          description: data.error || "Download failed. Please try again.",
-          variant: "destructive",
-        });
-      }
-    });
-  
-    return () => {
-      channel.unbind_all();
-      channel.unsubscribe();
-      pusher.disconnect();
-    };
-  }, [downloadId, videoInfo.title, selectedQuality, toast]);
 
   return (
     <Card className="max-w-4xl mx-auto mb-12">
@@ -134,7 +174,9 @@ export function VideoPreview({
           {/* Video Thumbnail */}
           <div className="relative">
             <Image
-              src={videoInfo.thumbnail || "/placeholder.svg?height=180&width=320"}
+              src={
+                videoInfo.thumbnail || "/placeholder.svg?height=180&width=320"
+              }
               alt="Video thumbnail"
               width={320}
               height={180}
@@ -151,7 +193,9 @@ export function VideoPreview({
 
           {/* Video Info */}
           <div className="space-y-4">
-            <h3 className="font-semibold text-lg line-clamp-2">{videoInfo.title}</h3>
+            <h3 className="font-semibold text-lg line-clamp-2">
+              {videoInfo.title}
+            </h3>
             <div className="text-sm text-gray-600">
               <div className="flex items-center gap-4 mt-1">
                 <span className="flex items-center gap-1">
@@ -182,7 +226,8 @@ export function VideoPreview({
                       "4320p": "8k",
                       "7680p": "8k",
                     };
-                    const label = qualityMap[quality.quality] || quality.quality;
+                    const label =
+                      qualityMap[quality.quality] || quality.quality;
                     return (
                       <SelectItem key={quality.quality} value={quality.quality}>
                         {label} ({quality.format.toUpperCase()})
@@ -196,11 +241,22 @@ export function VideoPreview({
             {/* Progress Bar */}
             {isDownloading && (
               <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>{status === "starting" ? "Starting..." : "Downloading..."}</span>
-                  <span>{Math.round(downloadProgress)}%</span>
+                <div className="flex items-center gap-2 text-sm">
+                  <span>
+                    {status === "processing" ? (
+                      <>
+                        Video Processing...{"  "}
+                        <span className="w-4 h-4 border-[8px] border-white border-b-[#FF3D00] rounded-full inline-block box-border animate-spin" />
+                      </>
+                    ) : status === "completed" ? (
+                      "Done!"
+                    ) : status === "failed" ? (
+                      "Failed"
+                    ) : (
+                      ""
+                    )}
+                  </span>
                 </div>
-                <Progress value={downloadProgress} className="w-full" />
               </div>
             )}
 
@@ -215,6 +271,13 @@ export function VideoPreview({
                 ? `Downloading ${selectedQuality}...`
                 : `Download ${selectedQuality}`}
             </Button>
+
+            {/* Show fallback error above status text */}
+            {fallbackError && (
+              <div className="text-yellow-600 text-sm font-medium mb-2">
+                {fallbackError}
+              </div>
+            )}
           </div>
         </div>
       </CardContent>

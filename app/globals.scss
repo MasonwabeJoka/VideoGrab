@@ -22,7 +22,8 @@
 
 // Loading animation
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
@@ -37,7 +38,7 @@
 // Card hover effects
 .card-hover {
   @apply transition-all duration-300 ease-in-out;
-  
+
   &:hover {
     @apply shadow-xl transform -translate-y-1;
   }
@@ -46,7 +47,7 @@
 // Button styles
 .btn-primary {
   @apply bg-red-500 hover:bg-red-600 text-white font-medium px-6 py-3 rounded-lg transition-colors;
-  
+
   &:disabled {
     @apply bg-gray-400 cursor-not-allowed;
   }
@@ -62,7 +63,7 @@
   h1 {
     @apply text-3xl;
   }
-  
+
   .container {
     @apply px-4;
   }
@@ -84,4 +85,24 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: #dc2626;
+}
+
+.loader {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #fff;
+  border-bottom-color: #ff3d00;
+  border-radius: 50%;
+  display: inline-block;
+  box-sizing: border-box;
+  animation: rotation 1s linear infinite;
+  vertical-align: middle;
+}
+@keyframes rotation {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
