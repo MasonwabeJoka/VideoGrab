@@ -12,7 +12,8 @@ export function Header() {
             <span>VideoBoom</span>
           </Link>
 
-          <nav className="flex items-center gap-4">
+          {/* Premium Navigation - Commented Out */}
+          {/* <nav className="flex items-center gap-4">
             <Link href="/premium">
               <Button
                 variant="outline"
@@ -23,7 +24,7 @@ export function Header() {
                 Premium
               </Button>
             </Link>
-          </nav>
+          </nav> */}
         </div>
       </div>
     </header>
