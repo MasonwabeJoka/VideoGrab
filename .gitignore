@@ -28,7 +28,7 @@ yarn-error.log*
 next-env.d.ts
 
 # cookies
-cookies.txt
+# cookies.txt
 
 # Downloaded videos
 /downloads/
