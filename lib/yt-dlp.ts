@@ -24,10 +24,24 @@ export interface DownloadResult {
 
 export class YtDlpDownloader {
   private downloadsDir: string;
+  private proxyList: string[];
+  private currentProxyIndex: number;
+  private lastRequestTime: number;
+  private minRequestInterval: number; // Rate limiting in milliseconds
+  private activeDownloads: number;
+  private maxConcurrentDownloads: number;
 
   constructor() {
     this.downloadsDir = path.join(process.cwd(), "downloads");
     this.ensureDownloadsDir();
+
+    // Initialize proxy rotation and rate limiting
+    this.proxyList = this.getProxyList();
+    this.currentProxyIndex = 0;
+    this.lastRequestTime = 0;
+    this.minRequestInterval = parseInt(process.env.MIN_REQUEST_INTERVAL || "2000");
+    this.activeDownloads = 0;
+    this.maxConcurrentDownloads = parseInt(process.env.MAX_CONCURRENT_DOWNLOADS || "3");
   }
 
   private async ensureDownloadsDir() {
@@ -38,12 +52,94 @@ export class YtDlpDownloader {
     }
   }
 
+  private getProxyList(): string[] {
+    // Environment variable for proxy configuration
+    const proxyEnv = process.env.PROXY_LIST;
+    if (proxyEnv) {
+      return proxyEnv.split(',').map(proxy => proxy.trim());
+    }
+
+    // Default empty list - no proxies configured
+    return [];
+  }
+
+  private getNextProxy(): string | null {
+    if (this.proxyList.length === 0) {
+      return null;
+    }
+
+    const proxy = this.proxyList[this.currentProxyIndex];
+    this.currentProxyIndex = (this.currentProxyIndex + 1) % this.proxyList.length;
+    return proxy;
+  }
+
+  private async enforceRateLimit(): Promise<void> {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+
+    if (timeSinceLastRequest < this.minRequestInterval) {
+      const waitTime = this.minRequestInterval - timeSinceLastRequest;
+      console.log(`Rate limiting: waiting ${waitTime}ms before next request`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+
+    this.lastRequestTime = Date.now();
+  }
+
+  private getRandomUserAgent(): string {
+    const userAgents = [
+      // Chrome on Windows
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+      // Firefox on Windows
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:119.0) Gecko/20100101 Firefox/119.0",
+      // Chrome on macOS
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+      // Safari on macOS
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15",
+      // Chrome on Linux
+      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    ];
+
+    return userAgents[Math.floor(Math.random() * userAgents.length)];
+  }
+
+  public getProxyStatus(): { total: number; current: number; configured: boolean } {
+    return {
+      total: this.proxyList.length,
+      current: this.currentProxyIndex,
+      configured: this.proxyList.length > 0,
+    };
+  }
+
+  public getActiveDownloads(): number {
+    return this.activeDownloads;
+  }
+
   async downloadVideo(options: DownloadOptions): Promise<DownloadResult> {
     let { url, quality, format, title } = options;
     const downloadId = randomUUID();
     let triedFallback = false;
     let fallbackNotified = false;
     let attemptedQualities = [quality];
+
+    // Check concurrent download limit
+    if (this.activeDownloads >= this.maxConcurrentDownloads) {
+      return {
+        success: false,
+        error: `Maximum concurrent downloads (${this.maxConcurrentDownloads}) reached. Please try again later.`,
+        fallback: false,
+        attemptedQualities: [quality],
+      };
+    }
+
+    // Enforce rate limiting before starting download
+    await this.enforceRateLimit();
+
+    // Increment active downloads counter
+    this.activeDownloads++;
 
     // Start with the requested quality, but ensure we have the full quality list
     const qualities = [
@@ -117,6 +213,7 @@ export class YtDlpDownloader {
         const result = await this.attemptDownload(fallbackArgs, downloadId);
         if (result.success) {
           console.log(`✅ Success with strategy: ${strategy.name} at quality: ${currentQuality}`);
+          this.activeDownloads--; // Decrement counter on success
           return { ...result, actualQuality: currentQuality, fallback: triedFallback };
         }
         lastError = result.error;
@@ -137,9 +234,12 @@ export class YtDlpDownloader {
       // Otherwise, just try the next lower quality without notifying again
       qualityIndex++;
     }
+    // Decrement counter on failure
+    this.activeDownloads--;
+
     return {
       success: false,
-      error: lastError || "All download strategies failed. YouTube may be blocking downloads from this server.",
+      error: lastError || "All download strategies failed. YouTube may be blocking downloads from this server. Consider using proxies or updating cookies.",
       fallback: triedFallback,
       attemptedQualities,
     };
@@ -200,6 +300,14 @@ export class YtDlpDownloader {
       "mp4",
       "--prefer-free-formats",
     ];
+
+    // Add proxy if available
+    const proxy = this.getNextProxy();
+    if (proxy) {
+      args.push("--proxy", proxy);
+      console.log(`Using proxy: ${proxy}`);
+    }
+
     return args;
   }
 
@@ -233,12 +341,20 @@ export class YtDlpDownloader {
       "--merge-output-format",
       "mp4",
     ];
+
+    // Add proxy if available
+    const proxy = this.getNextProxy();
+    if (proxy) {
+      args.push("--proxy", proxy);
+      console.log(`Using proxy: ${proxy}`);
+    }
+
     return args;
   }
 
   private buildIosArgs(url: string, downloadId: string, quality: string, format: string, title?: string): string[] {
     const outputTemplate = path.join(this.downloadsDir, `${this.sanitizeTitle(title) || downloadId}.%(ext)s`);
-    return [
+    const args = [
       url,
       "--output",
       outputTemplate,
@@ -264,30 +380,20 @@ export class YtDlpDownloader {
       "--merge-output-format",
       "mp4",
     ];
+
+    // Add proxy if available
+    const proxy = this.getNextProxy();
+    if (proxy) {
+      args.push("--proxy", proxy);
+      console.log(`Using proxy: ${proxy}`);
+    }
+
+    return args;
   }
 
   private buildBasicArgs(url: string, downloadId: string, quality: string, format: string, title?: string): string[] {
     const outputTemplate = path.join(this.downloadsDir, `${this.sanitizeTitle(title) || downloadId}.%(ext)s`);
-    return [
-      url,
-      "--output",
-      outputTemplate,
-      "--format",
-      this.getFormatSelector(quality, format),
-      "--no-playlist",
-      "--write-info-json",
-      "--progress-template",
-      "download:%(progress._percent_str)s",
-      "--cookies",
-      path.join(process.cwd(), "cookies.txt"),
-      "--merge-output-format",
-      "mp4",
-    ];
-  }
-
-  private buildWebArgs(url: string, downloadId: string, quality: string, format: string, title?: string): string[] {
-    const outputTemplate = path.join(this.downloadsDir, `${this.sanitizeTitle(title) || downloadId}.%(ext)s`);
-    return [
+    const args = [
       url,
       "--output",
       outputTemplate,
@@ -298,7 +404,7 @@ export class YtDlpDownloader {
       "--progress-template",
       "download:%(progress._percent_str)s",
       "--user-agent",
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      this.getRandomUserAgent(),
       "--socket-timeout",
       "30",
       "--retries",
@@ -311,6 +417,52 @@ export class YtDlpDownloader {
       "--merge-output-format",
       "mp4",
     ];
+
+    // Add proxy if available
+    const proxy = this.getNextProxy();
+    if (proxy) {
+      args.push("--proxy", proxy);
+      console.log(`Using proxy: ${proxy}`);
+    }
+
+    return args;
+  }
+
+  private buildWebArgs(url: string, downloadId: string, quality: string, format: string, title?: string): string[] {
+    const outputTemplate = path.join(this.downloadsDir, `${this.sanitizeTitle(title) || downloadId}.%(ext)s`);
+    const args = [
+      url,
+      "--output",
+      outputTemplate,
+      "--format",
+      this.getFormatSelector(quality, format),
+      "--no-playlist",
+      "--write-info-json",
+      "--progress-template",
+      "download:%(progress._percent_str)s",
+      "--user-agent",
+      this.getRandomUserAgent(),
+      "--socket-timeout",
+      "30",
+      "--retries",
+      "3",
+      "--fragment-retries",
+      "3",
+      "--no-check-certificates",
+      "--cookies",
+      path.join(process.cwd(), "cookies.txt"),
+      "--merge-output-format",
+      "mp4",
+    ];
+
+    // Add proxy if available
+    const proxy = this.getNextProxy();
+    if (proxy) {
+      args.push("--proxy", proxy);
+      console.log(`Using proxy: ${proxy}`);
+    }
+
+    return args;
   }
 
   private async attemptDownload(

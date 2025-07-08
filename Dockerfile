@@ -22,5 +22,10 @@ RUN npm install --legacy-peer-deps
 COPY . .
 RUN npm run build
 
+# Environment variables for proxy configuration
+ENV PROXY_LIST=""
+ENV MIN_REQUEST_INTERVAL=2000
+ENV MAX_CONCURRENT_DOWNLOADS=3
+
 EXPOSE 3000
 CMD ["npm", "start"]

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Download, Crown } from "lucide-react";
+import { Download, Crown, Settings } from "lucide-react";
 import { Button } from "./ui/button";
 
 export function Header() {
@@ -12,9 +12,23 @@ export function Header() {
             <span>VideoBoom</span>
           </Link>
 
-          {/* Premium Navigation - Commented Out */}
-          {/* <nav className="flex items-center gap-4">
-            <Link href="/premium">
+          <nav className="flex items-center gap-4">
+            {/* Admin Link - Only show in development or with admin access */}
+            {process.env.NODE_ENV === "development" && (
+              <Link href="/admin">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+                >
+                  <Settings className="w-4 h-4" />
+                  Admin
+                </Button>
+              </Link>
+            )}
+
+            {/* Premium Navigation - Commented Out */}
+            {/* <Link href="/premium">
               <Button
                 variant="outline"
                 size="sm"
@@ -23,8 +37,8 @@ export function Header() {
                 <Crown className="w-4 h-4 text-yellow-500" />
                 Premium
               </Button>
-            </Link>
-          </nav> */}
+            </Link> */}
+          </nav>
         </div>
       </div>
     </header>

@@ -27,7 +27,19 @@ export async function POST(request: NextRequest) {
     if (result.success && result.filePath) {
       activeDownloads.set(id, { status: "completed", fileName: result.fileName, fileSize: result.fileSize, actualQuality: result.actualQuality, videoOnly: result.videoOnly });
     } else if (!result.success) {
-      activeDownloads.set(id, { status: "failed", error: result.error });
+      // Enhanced error message with proxy suggestions
+      let enhancedError = result.error;
+      const proxyStatus = ytDlpDownloader.getProxyStatus();
+
+      if (result.error?.includes("blocking") || result.error?.includes("403") || result.error?.includes("429")) {
+        if (!proxyStatus.configured) {
+          enhancedError += " Consider configuring proxies in your environment variables (PROXY_LIST) to avoid IP blocking.";
+        } else {
+          enhancedError += " Try updating your cookies.txt file or using different proxy servers.";
+        }
+      }
+
+      activeDownloads.set(id, { status: "failed", error: enhancedError });
     }
     return NextResponse.json({ success: true, downloadId: id });
   } catch (error) {
