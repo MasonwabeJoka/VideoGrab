@@ -1,0 +1,16 @@
+# Netscape HTTP Cookie File
+# http://curl.haxx.se/rfc/cookie_spec.html
+# This file contains YouTube cookies for yt-dlp
+# 
+# IMPORTANT: To fix "YouTube blocked request" errors:
+# 1. Visit youtube.com in your browser
+# 2. Log in to your YouTube account
+# 3. Export cookies using a browser extension like "Get cookies.txt LOCALLY"
+# 4. Replace cookies.txt content with the exported cookies
+# 5. Restart your application
+#
+# Note: Cookies may expire and need periodic updates
+# If downloads fail with "Sign in to confirm", update this file
+#
+# For DigitalOcean deployments, you MUST also configure proxies:
+# Set PROXY_LIST environment variable with residential proxy servers

@@ -159,22 +159,28 @@ export class YtDlpDownloader {
 
     // Try the requested quality first with all strategies
     console.log(`Starting download attempt for quality: ${quality}`);
+    console.log(`Proxy status: ${this.proxyList.length > 0 ? `${this.proxyList.length} proxies configured` : 'No proxies configured'}`);
+
     const strategies = [
       {
-        name: "getpot_high_quality",
-        args: this.buildGetPOTArgs(url, downloadId, quality, format, title),
-      },
-      {
-        name: "android_client",
+        name: "android_client_with_proxy",
         args: this.buildAndroidArgs(url, downloadId, quality, format, title),
       },
       {
-        name: "ios_client",
+        name: "ios_client_with_proxy",
         args: this.buildIosArgs(url, downloadId, quality, format, title),
       },
       {
-        name: "web_client",
+        name: "web_client_with_proxy",
         args: this.buildWebArgs(url, downloadId, quality, format, title),
+      },
+      {
+        name: "basic_no_cookies",
+        args: this.buildBasicArgsNoCookies(url, downloadId, quality, format, title),
+      },
+      {
+        name: "getpot_high_quality",
+        args: this.buildGetPOTArgs(url, downloadId, quality, format, title),
       },
       {
         name: "basic_fallback",
@@ -465,6 +471,48 @@ export class YtDlpDownloader {
     return args;
   }
 
+  private buildBasicArgsNoCookies(url: string, downloadId: string, quality: string, format: string, title?: string): string[] {
+    const outputTemplate = path.join(this.downloadsDir, `${this.sanitizeTitle(title) || downloadId}.%(ext)s`);
+    const args = [
+      url,
+      "--output",
+      outputTemplate,
+      "--format",
+      this.getFormatSelector(quality, format),
+      "--no-playlist",
+      "--write-info-json",
+      "--progress-template",
+      "download:%(progress._percent_str)s",
+      "--user-agent",
+      this.getRandomUserAgent(),
+      "--socket-timeout",
+      "30",
+      "--retries",
+      "5", // More retries for no-cookies approach
+      "--fragment-retries",
+      "5",
+      "--no-check-certificates",
+      "--merge-output-format",
+      "mp4",
+      // Additional args to avoid detection
+      "--sleep-interval",
+      "1",
+      "--max-sleep-interval",
+      "3",
+    ];
+
+    // Add proxy if available (critical for no-cookies approach)
+    const proxy = this.getNextProxy();
+    if (proxy) {
+      args.push("--proxy", proxy);
+      console.log(`Using proxy (no-cookies): ${proxy}`);
+    } else {
+      console.warn("⚠️  No proxy configured - this may fail on cloud servers");
+    }
+
+    return args;
+  }
+
   private async attemptDownload(
     args: string[],
     downloadId: string,
@@ -498,6 +546,18 @@ export class YtDlpDownloader {
         const error = data.toString();
         errorOutput += error;
         console.error(`yt-dlp error: ${error.trim()}`);
+
+        // Enhanced error detection for YouTube blocking
+        if (error.includes("HTTP Error 403") ||
+            error.includes("HTTP Error 429") ||
+            error.includes("blocked") ||
+            error.includes("Sign in to confirm") ||
+            error.includes("This video is not available") ||
+            error.includes("Private video") ||
+            error.includes("Video unavailable") ||
+            error.includes("Requested format is not available")) {
+          console.error("🚫 YouTube blocking detected!");
+        }
       });
       ytDlp.on("close", async (code) => {
         console.log(`yt-dlp exited with code: ${code}`);
@@ -543,10 +603,22 @@ export class YtDlpDownloader {
           });
         } else {
           let errorMessage = `Download failed (code ${code})`;
-          if (errorOutput.includes("Sign in to confirm")) {
-            errorMessage = "YouTube blocked request - server IP is blocked";
+
+          // Enhanced error detection and messaging
+          if (errorOutput.includes("Sign in to confirm") ||
+              errorOutput.includes("HTTP Error 403") ||
+              errorOutput.includes("HTTP Error 429") ||
+              errorOutput.includes("blocked")) {
+            const proxyStatus = this.getProxyStatus();
+            if (!proxyStatus.configured) {
+              errorMessage = "YouTube blocked request: server IP is blocked. Configure PROXY_LIST environment variable with residential proxies to resolve this issue.";
+            } else {
+              errorMessage = "YouTube blocked request despite proxy usage. Try updating cookies.txt or using different proxy servers.";
+            }
           } else if (errorOutput.includes("Video unavailable")) {
-            errorMessage = "Video is unavailable";
+            errorMessage = "Video is unavailable or private";
+          } else if (errorOutput.includes("Requested format is not available")) {
+            errorMessage = "Requested video quality is not available";
           }
           resolve({
             success: false,

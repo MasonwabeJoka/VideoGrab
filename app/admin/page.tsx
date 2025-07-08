@@ -32,7 +32,7 @@ export default function AdminPage() {
       setLoading(true);
       const response = await fetch("/api/status");
       const data = await response.json();
-      
+
       if (data.success) {
         setStatus(data.data);
         setError(null);
@@ -66,10 +66,20 @@ export default function AdminPage() {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">System Administration</h1>
-        <Button onClick={fetchStatus} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={fetchStatus} disabled={loading}>
+            <RefreshCw
+              className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => window.open("/api/diagnostic", "_blank")}
+          >
+            Run Diagnostics
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -85,14 +95,20 @@ export default function AdminPage() {
           {/* Proxy Status */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Proxy Status</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Proxy Status
+              </CardTitle>
               <Shield className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Configured:</span>
-                  <Badge variant={status.proxy.configured ? "default" : "destructive"}>
+                  <Badge
+                    variant={
+                      status.proxy.configured ? "default" : "destructive"
+                    }
+                  >
                     {status.proxy.configured ? "Yes" : "No"}
                   </Badge>
                 </div>
@@ -104,7 +120,9 @@ export default function AdminPage() {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm">Current Index:</span>
-                      <span className="font-medium">{status.proxy.current}</span>
+                      <span className="font-medium">
+                        {status.proxy.current}
+                      </span>
                     </div>
                   </>
                 )}
@@ -122,19 +140,29 @@ export default function AdminPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Active:</span>
-                  <Badge variant={status.downloads.active > 0 ? "default" : "secondary"}>
+                  <Badge
+                    variant={
+                      status.downloads.active > 0 ? "default" : "secondary"
+                    }
+                  >
                     {status.downloads.active}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Max Concurrent:</span>
-                  <span className="font-medium">{status.downloads.maxConcurrent}</span>
+                  <span className="font-medium">
+                    {status.downloads.maxConcurrent}
+                  </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
                     className="bg-blue-600 h-2 rounded-full"
                     style={{
-                      width: `${(status.downloads.active / status.downloads.maxConcurrent) * 100}%`,
+                      width: `${
+                        (status.downloads.active /
+                          status.downloads.maxConcurrent) *
+                        100
+                      }%`,
                     }}
                   ></div>
                 </div>
@@ -145,14 +173,18 @@ export default function AdminPage() {
           {/* Rate Limiting */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Rate Limiting</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Rate Limiting
+              </CardTitle>
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Interval:</span>
-                  <span className="font-medium">{status.rateLimit.interval}ms</span>
+                  <span className="font-medium">
+                    {status.rateLimit.interval}ms
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Per Hour:</span>
@@ -203,7 +235,7 @@ export default function AdminPage() {
               PROXY_LIST=http://proxy1.example.com:8080,http://proxy2.example.com:8080
             </code>
           </div>
-          
+
           <div>
             <h4 className="font-medium mb-2">Rate Limiting</h4>
             <p className="text-sm text-muted-foreground mb-2">
